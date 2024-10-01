@@ -1,0 +1,195 @@
+schema paragraph {
+    document paragraph {
+        field id type string {
+            indexing: attribute | summary
+        }
+        field url type string {
+            indexing: index | summary
+            index: enable-bm25
+        }
+        field title type string {
+            indexing: index | summary
+            index: enable-bm25
+        }
+        field creation_date type string {
+            indexing: attribute
+        }
+        field last_updated type string {
+            indexing: attribute
+        }
+        field paragraph_text type string {
+            indexing: index | summary
+            index: enable-bm25
+        }
+        field paragraph_text_embedding_1024 type tensor<float>(x[1024]) {
+            indexing: index | attribute
+            attribute {
+                distance-metric: angular
+            }
+            index {
+                hnsw {
+                    max-links-per-node: 16
+                    neighbors-to-explore-at-insert: 200
+                }
+            }
+        }
+        field scraped_text_embedding_768 type tensor<float>(x[768]) {
+            indexing: index | attribute
+            attribute {
+                distance-metric: angular
+            }
+            index {
+                hnsw {
+                    max-links-per-node: 16
+                    neighbors-to-explore-at-insert: 200
+                }
+            }
+        }
+        field paragraph_text_embedding_768 type tensor<float>(x[768]) {
+            indexing: index | attribute
+            attribute {
+                distance-metric: angular
+            }
+            index {
+                hnsw {
+                    max-links-per-node: 16
+                    neighbors-to-explore-at-insert: 200
+                }
+            }
+        }
+    }
+    field paragraph_text_embedding_384 type tensor<float>(x[384]) {
+        indexing: input paragraph_text | embed | index | attribute
+        attribute {
+            distance-metric: angular
+        }
+        index {
+            hnsw {
+                max-links-per-node: 16
+                neighbors-to-explore-at-insert: 200
+            }
+        }
+    }
+    field time_stamp type long {
+        indexing: input creation_date | to_epoch_second | summary | attribute
+    }
+    fieldset default {
+        fields: title, paragraph_text
+    }
+    rank-profile semantic_384 inherits default {
+        inputs {
+            query(q) tensor<float>(x[384])             
+        
+        }
+        first-phase {
+            expression {
+                cos(distance(field,paragraph_text_embedding_384))
+            }
+        }
+    }
+    rank-profile semantic_768 inherits default {
+        inputs {
+            query(q) tensor<float>(x[768])             
+        
+        }
+        first-phase {
+            expression {
+                cos(distance(field,paragraph_text_embedding_768))
+            }
+        }
+    }
+    rank-profile semantic_1024 inherits default {
+        inputs {
+            query(q) tensor<float>(x[1024])             
+        
+        }
+        first-phase {
+            expression {
+                cos(distance(field,paragraph_text_embedding_1024))
+            }
+        }
+    }
+    rank-profile bm25 {
+        first-phase {
+            expression {
+                2*bm25(title) + bm25(paragraph_text)
+            }
+        }
+    }
+    rank-profile hybrid inherits semantic_1024 {
+        first-phase {
+            expression {
+                cos(distance(field,paragraph_text_embedding_1024))
+            }
+        }
+        second-phase {
+            rerank-count: 100
+            expression {
+                firstPhase + log( bm25(title) + bm25(paragraph_text))+ freshness(time_stamp)
+            }
+        }
+        match-features {
+            firstPhase
+            bm25(title)
+            freshness(time_stamp)
+            secondPhase
+        }
+    }
+    rank-profile hybrid_384 inherits semantic_384 {
+        first-phase {
+            expression {
+                cos(distance(field,paragraph_text_embedding_384))
+            }
+        }
+        second-phase {
+            rerank-count: 100
+            expression {
+                firstPhase + log( bm25(title) + bm25(paragraph_text))+ freshness(time_stamp)
+            }
+        }
+        match-features {
+            firstPhase
+            bm25(title)
+            freshness(time_stamp)
+            secondPhase
+        }
+    }
+    rank-profile hybrid_768 inherits semantic_768 {
+        first-phase {
+            expression {
+                cos(distance(field,paragraph_text_embedding_768))
+            }
+        }
+        second-phase {
+            rerank-count: 100
+            expression {
+                firstPhase + log( bm25(title) + bm25(paragraph_text))+ freshness(time_stamp)
+            }
+        }
+        match-features {
+            firstPhase
+            bm25(title)
+            freshness(time_stamp)
+            secondPhase
+        }
+    }
+    rank-profile hybrid_1024 inherits semantic_1024 {
+        first-phase {
+            expression {
+                cos(distance(field,paragraph_text_embedding_1024))
+            }
+        }
+        second-phase {
+            rerank-count: 100
+            expression {
+                firstPhase + log( bm25(title) + bm25(paragraph_text))+ freshness(time_stamp)
+            }
+        }
+        match-features {
+            firstPhase
+            bm25(title)
+            freshness(time_stamp)
+            secondPhase
+        }
+    }
+}
